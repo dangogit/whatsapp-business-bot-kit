@@ -6,13 +6,14 @@ import { FALLBACK_REPLY } from "./brain.js";
 const MAX_MESSAGE_CHARS = 4000;
 // Names and summaries come from the customer (directly or through Claude), so the owner alert
 // gets them on one line, short, and without links a customer could use to phish the owner.
-// WhatsApp also links bare domains (evil.co/login), so every dot becomes a look-alike that
-// cannot form a link, after removing invisible and direction-control characters.
+// WhatsApp also links bare domains (evil.co/login), so after normalizing look-alike characters and
+// removing invisible ones, every dot becomes "[.]", which no linkifier reads as a domain.
 const clip = (text, max) =>
   String(text ?? "")
-    .replace(/[​-‏‪-‮⁠-⁩﻿]/g, "")
+    .normalize("NFKC")
+    .replace(/[\p{Default_Ignorable_Code_Point}\p{Cf}]/gu, "")
     .replace(/[a-z][a-z0-9+.-]*:\/\/\S+/gi, "[קישור הוסר]")
-    .replace(/\./g, "․")
+    .replace(/[.。．｡․‥…]/g, "[.]")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, max);
