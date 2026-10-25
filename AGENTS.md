@@ -81,26 +81,47 @@ that `business.md` cannot express.
   with coexistence and keep the app. When unsure, start with the sandbox. Confirm with the owner
   before any step that affects their real number.
 
-## Going live in the cloud
+## Going live in the cloud (Railway)
 
-The bot has to run somewhere always on. Help the owner pick a host they can manage (Railway, Render,
-Fly.io, or a small VPS all work; there is a `Dockerfile`). What any host needs:
+The bot runs on Railway: one always-on service built from this folder's `Dockerfile`. Railway's Hobby
+plan is $5 a month including $5 of usage, which covers a bot this size; the Free plan ($1 credit a
+month) is not enough for an always-on service. Go live after the owner's real number is connected
+(`channels env` written): the sandbox only delivers through `sandbox listen` on this machine.
 
-- One always-on instance. Not serverless: replies run after the webhook is acknowledged, and the
-  conversation memory lives in the process.
-- The environment variables from `.env`, set in the host's settings, never committed.
-- A public HTTPS URL. Then point HookMyApp at it:
-  `hookmyapp channels webhook set <ch_id> --url https://<host>/webhook/whatsapp --verify-token <VERIFY_TOKEN>`.
-  Setting a URL stops any running `listen`.
-- Check `https://<host>/health` returns `ok`, then send a real message.
+1. Install the CLI. macOS: `brew install railway`. Elsewhere: `npm install -g @railway/cli` (it
+   downloads its binary in an install script, so it fails under `--ignore-scripts`; the fallback is
+   `curl -fsSL https://railway.com/install.sh | sh`). Check with `railway --version`.
+2. `railway login`. A browser opens; the owner signs in or creates the account. They add a card and
+   pick Hobby in the Railway dashboard.
+3. Create the project and service and upload the code, from this folder:
+   `railway up -y --detach --name whatsapp-bot`
+   It uploads the folder (`.gitignore` is respected, so `.env` stays local), creates the project and
+   service, and starts a build. The first deploy fails until the variables exist; that is expected.
+4. Copy every key from `.env` except `PORT` (Railway sets its own) into the service. Read each value
+   from `.env` and pipe it, so no secret appears on a command line or in your output:
+   `printf %s "$VALUE" | railway variable set ANTHROPIC_API_KEY --stdin --skip-deploys`
+   Do this for `META_GRAPH_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
+   `WEBHOOK_HMAC_SECRET`, `VERIFY_TOKEN`, `ANTHROPIC_API_KEY`, and any optional ones set
+   (`OWNER_PHONE`, `BOT_EFFORT`...). Set the last one without `--skip-deploys` so it redeploys.
+5. `railway domain` prints the public address, `https://<name>.up.railway.app`.
+6. `curl https://<name>.up.railway.app/health` must print `ok`. If not, `railway logs` shows why
+   (a missing variable names itself: "Missing settings: ...").
+7. Point HookMyApp at it. This stops any running `listen`:
+   `hookmyapp channels webhook set <ch_id> --url https://<name>.up.railway.app/webhook/whatsapp --verify-token <VERIFY_TOKEN>`
+8. The owner sends a real message from their phone and gets an answer.
 
-If the business needs memory that survives restarts, or more than one instance, move
-`src/conversations.js` to a database first.
+Later changes: edit `business.md` or the code, run `npm test`, then `railway up --detach` again.
+Changing a variable: `railway variable set KEY --stdin` (redeploys by itself).
+
+Run one instance only, and leave Railway's Serverless (app sleeping) setting off: replies run after
+the webhook is acknowledged, and the conversation memory lives in the process. Memory resets on every
+deploy. If the business needs memory that survives restarts, move `src/conversations.js` to a
+database first (`railway add --database postgres`).
 
 ## Working rules
 
 - Run `npm test` after every code change. Add a test for any new logic.
-- Secrets live only in `.env` (git-ignored) or the host's environment settings.
+- Secrets live only in `.env` (git-ignored) or Railway's service variables.
 - Keep the code small and dependency-light. Ask before adding a framework or a database.
 - `OWNER_PHONE` gets a WhatsApp when a customer needs a human, but only if that phone messaged the
   business number in the last 24 hours (a WhatsApp rule). Otherwise the failure shows in the log as

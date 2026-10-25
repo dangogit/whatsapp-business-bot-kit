@@ -59,18 +59,37 @@ hookmyapp channels env ch_XXXX --write .env
 
 **לפני שמחברים:** מספר שרשום בוואטסאפ הרגיל צריך למחוק בו את חשבון הוואטסאפ, וההיסטוריה הולכת. מספר של אפליקציית WhatsApp Business מתחבר במצב coexistence, והאפליקציה ממשיכה לעבוד. אם לא בטוחים, מתחילים ב-sandbox.
 
-## עלייה לענן
+## עלייה לענן (Railway)
 
-הבוט צריך לרוץ כל הזמן. Claude Code יעזור לכם לבחור שרת (Railway, Render, Fly.io או VPS; יש `Dockerfile`), להגדיר את משתני הסביבה ולחבר את הכתובת:
+הבוט צריך לרוץ כל הזמן, גם כשהמחשב כבוי. הערכה עולה ל-Railway, במסלול Hobby (‏$5 לחודש, כולל $5 שימוש, וזה מספיק לבוט בגודל הזה). עושים את זה אחרי שהמספר של העסק מחובר. הכי פשוט: לבקש מ-Claude Code "תעלה את הבוט ל-Railway", והוא ירוץ לפי `AGENTS.md`. ידנית:
 
 ```bash
-hookmyapp channels webhook set ch_XXXX --url https://your-bot.example.com/webhook/whatsapp --verify-token <VERIFY_TOKEN>
+brew install railway                          # או: npm install -g @railway/cli
+railway login                                 # בדפדפן; מוסיפים כרטיס ובוחרים Hobby
+railway up -y --detach --name whatsapp-bot    # יוצר פרויקט ומעלה את התיקייה
 ```
+
+אחר כך מעתיקים את המשתנים מ-`.env`, כל אחד בנפרד (חוץ מ-`PORT`). ככה מפתח לא נשאר בהיסטוריה של הטרמינל:
+
+```bash
+railway variable set ANTHROPIC_API_KEY --stdin --skip-deploys   # מדביקים את הערך, Enter, ואז Ctrl+D
+```
+
+ואחרי שכל המשתנים בפנים:
+
+```bash
+railway domain                                # מחזיר https://<name>.up.railway.app
+curl https://<name>.up.railway.app/health     # צריך להחזיר ok
+hookmyapp channels webhook set ch_XXXX --url https://<name>.up.railway.app/webhook/whatsapp --verify-token <VERIFY_TOKEN>
+```
+
+שיניתם את `business.md`? מריצים שוב `railway up --detach`. משהו לא עובד? `railway logs`.
 
 ## עלויות, שכדאי לדעת מראש
 
 - **Meta:** מ-1 באוקטובר 2026 כל מספר מקבל 1,000 תשובות חינם בחודש. אחרי זה בערך $0.005 לתשובה בישראל. בלי אמצעי תשלום בחשבון של Meta, הבוט מפסיק לענות אחרי ה-1,000.
 - **HookMyApp:** לפי מסלול, לפי מספר ההודעות שנשלחות.
+- **Railway:** ‏$5 לחודש במסלול Hobby, כולל $5 שימוש.
 - **Claude:** לפי שימוש, בחשבון ה-API שלכם. ההגדרה `BOT_EFFORT=low` שומרת על עלות נמוכה.
 
 ## כללים של Meta
