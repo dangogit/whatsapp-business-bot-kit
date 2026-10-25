@@ -10,7 +10,7 @@
 ## מה צריך
 
 - [Claude Code](https://claude.com/claude-code)
-- Node.js 20.12 ומעלה
+- Node.js 20.12 ומעלה (ב-Windows: `winget install OpenJS.NodeJS.LTS`)
 - חשבון ב-[HookMyApp](https://hookmyapp.com/?fpr=daniel36) (דרך הלינק הזה יש 20% הנחה; יש בו sandbox לבדיקות)
 - מפתח API של Claude מ-[platform.claude.com](https://platform.claude.com)
 - טלפון עם וואטסאפ לבדיקה
@@ -29,6 +29,10 @@ claude
 
 ב-`AGENTS.md` יש ל-Claude Code את כל ההוראות: התקנה, חיבור, ראיון, בדיקות ועלייה לענן.
 
+## Windows, Mac ו-Linux
+
+הקוד עצמו הוא Node נקי, בלי סקריפטים של shell, ונבדק אוטומטית על Windows, Mac ו-Linux. הפקודות כאן עובדות ב-Terminal של Mac ו-Linux, וב-Windows ב-PowerShell או ב-Git Bash. כשעובדים עם Claude Code הוא מתאים את הפקודות למחשב לבד.
+
 ## ידנית, ב-sandbox
 
 ```bash
@@ -37,7 +41,7 @@ npm install -g @gethookmyapp/cli@latest
 hookmyapp login
 hookmyapp sandbox start whatsapp      # שולחים מהטלפון את הקוד שמופיע
 hookmyapp sandbox env --write .env
-echo "ANTHROPIC_API_KEY=sk-ant-..." >> .env
+# פותחים את .env בעורך ומוסיפים שורה: ANTHROPIC_API_KEY=sk-ant-...
 npm start
 ```
 
@@ -64,7 +68,7 @@ hookmyapp channels env ch_XXXX --write .env
 הבוט צריך לרוץ כל הזמן, גם כשהמחשב כבוי. הערכה עולה ל-Railway, במסלול Hobby (‏$5 לחודש, כולל $5 שימוש, וזה מספיק לבוט בגודל הזה). עושים את זה אחרי שהמספר של העסק מחובר. הכי פשוט: לבקש מ-Claude Code "תעלה את הבוט ל-Railway", והוא ירוץ לפי `AGENTS.md`. ידנית:
 
 ```bash
-brew install railway                          # או: npm install -g @railway/cli
+npm install -g @railway/cli                   # ב-Mac אפשר גם: brew install railway
 railway login                                 # בדפדפן; מוסיפים כרטיס ובוחרים Hobby
 railway up -y --detach --name whatsapp-bot    # יוצר פרויקט ומעלה את התיקייה
 ```
@@ -72,14 +76,14 @@ railway up -y --detach --name whatsapp-bot    # יוצר פרויקט ומעלה
 אחר כך מעתיקים את המשתנים מ-`.env`, כל אחד בנפרד (חוץ מ-`PORT`). ככה מפתח לא נשאר בהיסטוריה של הטרמינל:
 
 ```bash
-railway variable set ANTHROPIC_API_KEY --stdin --skip-deploys   # מדביקים את הערך, Enter, ואז Ctrl+D
+railway variable set ANTHROPIC_API_KEY --stdin --skip-deploys   # מדביקים את הערך, Enter, ואז Ctrl+D (ב-Windows: Ctrl+Z ואז Enter)
 ```
 
 ואחרי שכל המשתנים בפנים:
 
 ```bash
 railway domain                                # מחזיר https://<name>.up.railway.app
-curl https://<name>.up.railway.app/health     # צריך להחזיר ok
+curl https://<name>.up.railway.app/health     # צריך להחזיר ok (ב-PowerShell: curl.exe)
 hookmyapp channels webhook set ch_XXXX --url https://<name>.up.railway.app/webhook/whatsapp --verify-token <VERIFY_TOKEN>
 ```
 

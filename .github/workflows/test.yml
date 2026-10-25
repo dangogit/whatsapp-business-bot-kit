@@ -1,0 +1,30 @@
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22, 24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - name: Server starts and answers /health
+        shell: bash
+        run: |
+          printf 'WHATSAPP_API_URL=http://127.0.0.1:9/v22.0\r\nWHATSAPP_ACCESS_TOKEN=hmat_test\r\nWHATSAPP_PHONE_NUMBER_ID=1\r\nWEBHOOK_HMAC_SECRET=s\r\nVERIFY_TOKEN=vt\r\nANTHROPIC_API_KEY=sk-ant-test\r\nPORT=3456\r\n' > .env
+          node src/server.js > server.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:3456/health; then echo; exit 0; fi
+            sleep 1
+          done
+          cat server.log
+          exit 1

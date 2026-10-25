@@ -23,7 +23,7 @@ Customer on WhatsApp -> Meta Cloud API -> HookMyApp (signs, forwards) -> src/ser
 
 ## Getting it running (do these for the owner)
 
-1. Node.js 20.12 or newer: `node --version`.
+1. Node.js 20.12 or newer: `node --version`. On Windows, install it with `winget install OpenJS.NodeJS.LTS`.
 2. `npm install`
 3. HookMyApp CLI: `npm install -g @gethookmyapp/cli@latest`, then `hookmyapp login`. The login opens
    a browser; the owner completes it. The npm package is `@gethookmyapp/cli`, not `hookmyapp`.
@@ -51,6 +51,14 @@ non-interactive shell), so run it before adding `ANTHROPIC_API_KEY` and the opti
 `hookmyapp channels env <ch_id> --write .env` updates its own keys and keeps the rest. When moving
 from the sandbox to a real number, check afterwards that `WEBHOOK_HMAC_SECRET` and the API URL changed;
 a leftover sandbox secret makes every real webhook fail with 401.
+
+## Windows
+
+Everything in `src/` and `test/` is plain Node with no shell scripts, and CI runs the tests and a
+server start on Windows, macOS and Linux. Commands in this file are written for Bash; on Windows use
+Git Bash or translate them to PowerShell. Never write `.env` with PowerShell's `>` or `>>`: Windows
+PowerShell 5 writes UTF-16, which breaks the file. Edit `.env` with your file tools instead.
+HookMyApp's local tunnel supports Windows x64; Windows on ARM is unverified by HookMyApp.
 
 ## Making it about their business
 
@@ -88,9 +96,9 @@ plan is $5 a month including $5 of usage, which covers a bot this size; the Free
 month) is not enough for an always-on service. Go live after the owner's real number is connected
 (`channels env` written): the sandbox only delivers through `sandbox listen` on this machine.
 
-1. Install the CLI. macOS: `brew install railway`. Elsewhere: `npm install -g @railway/cli` (it
-   downloads its binary in an install script, so it fails under `--ignore-scripts`; the fallback is
-   `curl -fsSL https://railway.com/install.sh | sh`). Check with `railway --version`.
+1. Install the CLI: `npm install -g @railway/cli` on Windows, macOS and Linux (or `brew install railway`
+   on macOS). The npm package downloads its binary in an install script, so it fails under
+   `--ignore-scripts`. Check with `railway --version`.
 2. `railway login`. A browser opens; the owner signs in or creates the account. They add a card and
    pick Hobby in the Railway dashboard.
 3. Create the project and service and upload the code, from this folder:
@@ -100,11 +108,13 @@ month) is not enough for an always-on service. Go live after the owner's real nu
 4. Copy every key from `.env` except `PORT` (Railway sets its own) into the service. Read each value
    from `.env` and pipe it, so no secret appears on a command line or in your output:
    `printf %s "$VALUE" | railway variable set ANTHROPIC_API_KEY --stdin --skip-deploys`
+   That is Bash, which is also what Claude Code's Bash tool runs on Windows (Git Bash). In PowerShell:
+   `$v | railway variable set ANTHROPIC_API_KEY --stdin --skip-deploys`
    Do this for `META_GRAPH_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
    `WEBHOOK_HMAC_SECRET`, `VERIFY_TOKEN`, `ANTHROPIC_API_KEY`, and any optional ones set
    (`OWNER_PHONE`, `BOT_EFFORT`...). Set the last one without `--skip-deploys` so it redeploys.
 5. `railway domain` prints the public address, `https://<name>.up.railway.app`.
-6. `curl https://<name>.up.railway.app/health` must print `ok`. If not, `railway logs` shows why
+6. `curl https://<name>.up.railway.app/health` must print `ok` (in Windows PowerShell 5, type `curl.exe`; plain `curl` is an alias there). If not, `railway logs` shows why
    (a missing variable names itself: "Missing settings: ...").
 7. Point HookMyApp at it. This stops any running `listen`:
    `hookmyapp channels webhook set <ch_id> --url https://<name>.up.railway.app/webhook/whatsapp --verify-token <VERIFY_TOKEN>`
