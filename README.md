@@ -1,6 +1,6 @@
 # WhatsApp Business Bot Kit
 
-בוט וואטסאפ שעונה ללקוחות שלכם בשם העסק, על ה-API הרשמי של Meta, דרך [HookMyApp](https://hookmyapp.com), עם Claude.
+בוט וואטסאפ שעונה ללקוחות שלכם בשם העסק, על ה-API הרשמי של Meta, דרך [HookMyApp](https://hookmyapp.com/?fpr=daniel36), עם Claude.
 
 - **עונה רק מתוך המידע של העסק.** כל מה שהבוט יודע כתוב בקובץ אחד, `business.md`.
 - **יודע מתי להעביר אליכם.** תלונה, תשלום, שאלה שאין לה תשובה, או לקוח שמבקש בן אדם: הבוט אומר ללקוח שמישהו יחזור אליו, שולח לכם הודעה, ומפסיק לענות ללקוח הזה.
@@ -11,7 +11,7 @@
 
 - [Claude Code](https://claude.com/claude-code)
 - Node.js 20.12 ומעלה
-- חשבון ב-[HookMyApp](https://hookmyapp.com) (יש ניסיון חינם ל-7 ימים, וגם sandbox חינמי לבדיקות)
+- חשבון ב-[HookMyApp](https://hookmyapp.com/?fpr=daniel36) (דרך הלינק הזה יש 20% הנחה; יש בו sandbox לבדיקות)
 - מפתח API של Claude מ-[platform.claude.com](https://platform.claude.com)
 - טלפון עם וואטסאפ לבדיקה
 
