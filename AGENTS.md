@@ -104,6 +104,7 @@ If the business needs memory that survives restarts, or more than one instance, 
 - Keep the code small and dependency-light. Ask before adding a framework or a database.
 - `OWNER_PHONE` gets a WhatsApp when a customer needs a human, but only if that phone messaged the
   business number in the last 24 hours (a WhatsApp rule). Otherwise the failure shows in the log as
-  `131047`. Tell the owner, and for a reliable alert suggest an approved utility template or email.
+  `131047`. With coexistence the owner's own phone is the business number, so `OWNER_PHONE` must be a
+  different phone. Tell the owner, and for a reliable alert suggest an approved utility template or email.
 - Do not run `channels listen` on a live number casually: while it runs, real customers' messages go
   to this laptop.

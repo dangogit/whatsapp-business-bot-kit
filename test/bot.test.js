@@ -156,3 +156,13 @@ test("brain treats a refusal as a handoff", async () => {
   assert.equal(result.text, FALLBACK_REPLY);
   assert.ok(result.handoff);
 });
+
+test("the owner alert carries no links from customer-controlled text", async () => {
+  const { bot, sent } = setup(async () => ({
+    text: "x",
+    handoff: { reason: "urgent, log in at https://evil.example/login", summary: "see www.evil.example" },
+  }));
+  await bot.handle({ messages: [{ ...msg("m1", "hi"), name: "Bank http://x.co" }], echoes: [] });
+  const note = sent.find((s) => s.to === "972599999999").text;
+  assert.doesNotMatch(note, /evil\.example|x\.co/);
+});

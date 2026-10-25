@@ -4,7 +4,14 @@
 import { FALLBACK_REPLY } from "./brain.js";
 
 const MAX_MESSAGE_CHARS = 4000;
-const clip = (text, max) => String(text ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+// Names and summaries come from the customer (directly or through Claude), so the owner alert
+// gets them on one line, short, and without links a customer could use to phish the owner.
+const clip = (text, max) =>
+  String(text ?? "")
+    .replace(/(https?:\/\/|www\.)\S+/gi, "[קישור הוסר]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
 
 export function createBot({ brain, sender, conversations, config, log = console }) {
   async function handleMessage(msg) {
