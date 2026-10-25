@@ -160,9 +160,9 @@ test("brain treats a refusal as a handoff", async () => {
 test("the owner alert carries no links from customer-controlled text", async () => {
   const { bot, sent } = setup(async () => ({
     text: "x",
-    handoff: { reason: "urgent, log in at https://evil.example/login", summary: "see www.evil.example" },
+    handoff: { reason: "urgent, log in at https://evil.example/login", summary: "see www.evil.example or evil\u200B.co/pay" },
   }));
-  await bot.handle({ messages: [{ ...msg("m1", "hi"), name: "Bank http://x.co" }], echoes: [] });
+  await bot.handle({ messages: [{ ...msg("m1", "hi"), name: "Bank bank-il.com" }], echoes: [] });
   const note = sent.find((s) => s.to === "972599999999").text;
-  assert.doesNotMatch(note, /evil\.example|x\.co/);
+  assert.doesNotMatch(note, /https?:|[a-z0-9-]\.[a-z]/i);
 });
