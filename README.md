@@ -1,0 +1,102 @@
+# WhatsApp Business Bot Kit
+
+בוט וואטסאפ שעונה ללקוחות שלכם בשם העסק, על ה-API הרשמי של Meta, דרך [HookMyApp](https://hookmyapp.com), עם Claude.
+
+- **עונה רק מתוך המידע של העסק.** כל מה שהבוט יודע כתוב בקובץ אחד, `business.md`.
+- **יודע מתי להעביר אליכם.** תלונה, תשלום, שאלה שאין לה תשובה, או לקוח שמבקש בן אדם: הבוט אומר ללקוח שמישהו יחזור אליו, שולח לכם הודעה, ומפסיק לענות ללקוח הזה.
+- **מפנה לכם את הבמה.** אם המספר מחובר במצב coexistence ואתם עונים מאפליקציית WhatsApp Business, הבוט מזהה ושותק.
+- **רשמי.** בלי חיבור לא רשמי ל-WhatsApp Web, ובלי סיכון לחסימה של המספר.
+
+## מה צריך
+
+- [Claude Code](https://claude.com/claude-code)
+- Node.js 20.12 ומעלה
+- חשבון ב-[HookMyApp](https://hookmyapp.com) (יש ניסיון חינם ל-7 ימים, וגם sandbox חינמי לבדיקות)
+- מפתח API של Claude מ-[platform.claude.com](https://platform.claude.com)
+- טלפון עם וואטסאפ לבדיקה
+
+## הדרך הקלה: לתת ל-Claude Code לעשות את זה
+
+```bash
+git clone https://github.com/dangogit/whatsapp-business-bot-kit.git
+cd whatsapp-business-bot-kit
+claude
+```
+
+ואז לכתוב לו:
+
+> תרים לי את הבוט ב-sandbox של HookMyApp, ואז תראיין אותי על העסק ותמלא את business.md
+
+ב-`AGENTS.md` יש ל-Claude Code את כל ההוראות: התקנה, חיבור, ראיון, בדיקות ועלייה לענן.
+
+## ידנית, ב-sandbox
+
+```bash
+npm install
+npm install -g @gethookmyapp/cli@latest
+hookmyapp login
+hookmyapp sandbox start whatsapp      # שולחים מהטלפון את הקוד שמופיע
+hookmyapp sandbox env --write .env
+echo "ANTHROPIC_API_KEY=sk-ant-..." >> .env
+npm start
+```
+
+ובטרמינל שני:
+
+```bash
+hookmyapp sandbox listen --port 3000 --path /webhook/whatsapp
+```
+
+עכשיו שולחים הודעה למספר ה-sandbox, והבוט עונה.
+
+## המספר של העסק
+
+```bash
+hookmyapp channels connect whatsapp           # חיבור דרך Meta בדפדפן
+hookmyapp channels list                        # מעתיקים את ה-ch_...
+hookmyapp channels env ch_XXXX --write .env
+```
+
+**לפני שמחברים:** מספר שרשום בוואטסאפ הרגיל צריך למחוק בו את חשבון הוואטסאפ, וההיסטוריה הולכת. מספר של אפליקציית WhatsApp Business מתחבר במצב coexistence, והאפליקציה ממשיכה לעבוד. אם לא בטוחים, מתחילים ב-sandbox.
+
+## עלייה לענן
+
+הבוט צריך לרוץ כל הזמן. Claude Code יעזור לכם לבחור שרת (Railway, Render, Fly.io או VPS; יש `Dockerfile`), להגדיר את משתני הסביבה ולחבר את הכתובת:
+
+```bash
+hookmyapp channels webhook set ch_XXXX --url https://your-bot.example.com/webhook/whatsapp --verify-token <VERIFY_TOKEN>
+```
+
+## עלויות, שכדאי לדעת מראש
+
+- **Meta:** מ-1 באוקטובר 2026 כל מספר מקבל 1,000 תשובות חינם בחודש. אחרי זה בערך $0.005 לתשובה בישראל. בלי אמצעי תשלום בחשבון של Meta, הבוט מפסיק לענות אחרי ה-1,000.
+- **HookMyApp:** לפי מסלול, לפי מספר ההודעות שנשלחות.
+- **Claude:** לפי שימוש, בחשבון ה-API שלכם. ההגדרה `BOT_EFFORT=low` שומרת על עלות נמוכה.
+
+## כללים של Meta
+
+- הבוט חייב להישאר על העסק. בוט AI כללי אסור בוואטסאפ, בוט שירות לקוחות של עסק מותר.
+- חייבת להיות דרך להגיע לבן אדם (בשביל זה יש את ההעברה אליכם).
+- תשובה חופשית אפשר לשלוח רק עד 24 שעות אחרי ההודעה האחרונה של הלקוח. אחרי זה צריך template מאושר.
+
+## הגדרות
+
+כל ההגדרות ב-`.env`. הרשימה המלאה ב-[`.env.example`](.env.example). השימושיות:
+
+| משתנה | מה הוא עושה |
+|---|---|
+| `OWNER_PHONE` | המספר שלכם (למשל `0501234567`), לקבלת התראה כשלקוח צריך בן אדם. ההתראה מגיעה רק אם שלחתם מהטלפון הזה הודעה למספר העסקי ב-24 השעות האחרונות |
+| `HANDOFF_PAUSE_HOURS` | כמה שעות הבוט שותק אחרי העברה (ברירת מחדל 12) |
+| `BOT_MODEL` | ברירת מחדל `claude-opus-5-5` |
+| `MAX_REPLIES_PER_HOUR` | כמה תשובות לכל לקוח בשעה, הגנה על החשבון ב-Anthropic (ברירת מחדל 30) |
+| `BOT_EFFORT` | `low` / `medium` / `high` (ברירת מחדל `low`) |
+
+## בדיקות
+
+```bash
+npm test
+```
+
+## רישיון
+
+MIT
