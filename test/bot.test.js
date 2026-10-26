@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import { createBot } from "../src/bot.js";
 import { createBrain, FALLBACK_REPLY } from "../src/brain.js";
 import { createConversations } from "../src/conversations.js";
+import { createSender } from "../src/whatsapp.js";
 
 const quiet = { info() {}, warn() {}, error() {} };
 const config = { ownerPhone: "972599999999", handoffPauseHours: 12, typingIndicator: true, maxRepliesPerHour: 30 };
@@ -38,6 +40,49 @@ test("a duplicate delivery is answered only once", async () => {
   await bot.handle({ messages: [msg("m1", "hi")], echoes: [] });
   await bot.handle({ messages: [msg("m1", "hi")], echoes: [] });
   assert.equal(sent.length, 1);
+});
+
+test("a stalled typing request does not delay the reply for the text-send timeout", { timeout: 10_000 }, async (t) => {
+  const requests = [];
+  const warnings = [];
+  let replyTimer;
+  const gateway = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks).toString());
+    requests.push(body);
+    if (body.status === "read") return; // Simulate a typing endpoint that never responds.
+    // Ordinary sends still need more time than the optional typing request gets.
+    replyTimer = setTimeout(() => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ messages: [{ id: "reply.1" }] }));
+    }, 2_100);
+  });
+  t.after(async () => {
+    clearTimeout(replyTimer);
+    gateway.closeAllConnections();
+    await new Promise((resolve) => gateway.close(resolve));
+  });
+  await new Promise((resolve) => gateway.listen(0, "127.0.0.1", resolve));
+  const conversations = createConversations();
+  const bot = createBot({
+    brain: { reply: async () => ({ text: "פתוחים עד שש", handoff: null }) },
+    sender: createSender({
+      apiUrl: `http://127.0.0.1:${gateway.address().port}/meta`,
+      accessToken: "test-token", phoneNumberId: "1",
+    }),
+    conversations,
+    config,
+    log: { ...quiet, warn: (message) => warnings.push(message) },
+  });
+
+  await bot.handle({ messages: [msg("typing-timeout", "מה השעות?")], echoes: [] });
+
+  assert.equal(requests[0].status, "read");
+  assert.equal(requests[1].text.body, "פתוחים עד שש");
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /typing indicator/);
+  assert.equal(conversations.history("972500000001").at(-1).role, "assistant");
 });
 
 test("a handoff notifies the owner and pauses the bot for that customer", async () => {
@@ -155,6 +200,19 @@ test("brain treats a refusal as a handoff", async () => {
   const result = await brain.reply([{ role: "user", content: "?" }]);
   assert.equal(result.text, FALLBACK_REPLY);
   assert.ok(result.handoff);
+});
+
+test("a tool-only handoff still gives the customer a reply", async () => {
+  const client = { beta: { messages: { create: async () => ({
+    stop_reason: "tool_use",
+    content: [{ type: "tool_use", name: "handoff_to_human", input: { reason: "stock check", summary: "blue flowers" } }],
+  }) } } };
+  const brain = createBrain({ businessText: "Flower shop", model: "m", effort: "low", client });
+  const result = await brain.reply([{ role: "user", content: "יש פרחים כחולים?" }]);
+  assert.deepEqual(result, {
+    text: FALLBACK_REPLY,
+    handoff: { reason: "stock check", summary: "blue flowers" },
+  });
 });
 
 test("the owner alert carries no links from customer-controlled text", async () => {
