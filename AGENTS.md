@@ -43,6 +43,14 @@ Customer on WhatsApp -> Meta Cloud API -> HookMyApp (signs, forwards) -> src/ser
 7. The owner sends a WhatsApp message and gets an answer. `hookmyapp channels health <ch_id>` helps
    when nothing arrives.
 
+Check installed CLIs before installing them again. A browser signed into a website is not proof
+that its CLI is authenticated: verify with `hookmyapp doctor` or `railway whoami` as appropriate.
+The owner completes sign-in, permissions, phone binding and payment steps themselves.
+
+`sandbox start whatsapp --json` returns a code and link; it does not bind the phone. The owner must
+press Send in WhatsApp, then `sandbox status` must show the active session. Reuse the current code
+while valid instead of repeatedly creating login or binding flows.
+
 A variable already set in the shell wins over the same name in `.env`. If the bot uses the wrong
 Anthropic key, check `echo ${ANTHROPIC_API_KEY:+set}` in the shell that runs `npm start`.
 
@@ -51,6 +59,12 @@ non-interactive shell), so run it before adding `ANTHROPIC_API_KEY` and the opti
 `hookmyapp channels env <ch_id> --write .env` updates its own keys and keeps the rest. When moving
 from the sandbox to a real number, check afterwards that `WEBHOOK_HMAC_SECRET` and the API URL changed;
 a leftover sandbox secret makes every real webhook fail with 401.
+If keeping both modes, use ignored root files such as `.env.sandbox` and `.env.business`, or keep
+private files outside the upload root. Verify the exact path is ignored before upload. Identify the
+intended phone/channel before exporting or deploying. Never copy sandbox settings to a live bot.
+
+Never print `.env`, raw `channels env`, or Railway variable-list output. Even channel-list JSON can
+contain signed media URLs: capture it privately and show only the needed identity/state fields.
 
 ## Windows
 
@@ -71,6 +85,11 @@ Then test it with them: send real questions from their phone, read the answers t
 `business.md` until the answers sound like the business. Change `src/brain.js` only for behaviour
 that `business.md` cannot express.
 
+For an explicitly requested fictional demo, label invented business data as fictional and collect
+invented details only. Get the owner's approval before routing a real number to that demo. Explain
+handoff: without `OWNER_PHONE` there is a pause and log entry, not a notification to a real person.
+A short `HANDOFF_PAUSE_HOURS` can suit repeated demo tests; keep it a local setting.
+
 ## Rules that come from Meta (do not remove them)
 
 - **The bot must stay about this business.** Meta's terms (Section 4.7) ban offering a general-purpose
@@ -79,7 +98,8 @@ that `business.md` cannot express.
 - **There must be a way to reach a human.** Meta's Business Messaging Policy requires a clear
   escalation path. That is `handoff_to_human`; keep it.
 - **24-hour window.** Free-form replies only work within 24 hours of the customer's last message.
-  Anything later (reminders, follow-ups, campaigns) needs an approved template.
+  A website signup does not open that window. Business-initiated reminders and follow-ups outside
+  it need an approved template and opt-in. This kit does not implement outbound signup automation.
 - **Cost.** Since 1 October 2026 each number gets 1,000 free service replies a month, then Meta
   charges per reply. Without a payment method on the WhatsApp Business Account, replies stop after
   the free 1,000. HookMyApp counts sends as actions on its own plan. Claude usage is billed to the
@@ -89,44 +109,20 @@ that `business.md` cannot express.
   with coexistence and keep the app. When unsure, start with the sandbox. Confirm with the owner
   before any step that affects their real number.
 
-## Going live in the cloud (Railway)
+## Deployment, migration and shutdown
 
-The bot runs on Railway: one always-on service built from this folder's `Dockerfile`. Railway's Hobby
-plan is $5 a month including $5 of usage, which covers a bot this size; the Free plan ($1 credit a
-month) is not enough for an always-on service. Go live after the owner's real number is connected
-(`channels env` written): the sandbox only delivers through `sandbox listen` on this machine.
+Read [docs/operations.md](docs/operations.md) before a Railway deployment, a change to a real
+number's destination, or shutdown. It covers CLI authentication, paid-plan blockers, private variable
+transfer, Railway's actual listening port, webhook probes, cutover, rollback and complete shutdown.
 
-1. Install the CLI: `npm install -g @railway/cli` on Windows, macOS and Linux (or `brew install railway`
-   on macOS). The npm package downloads its binary in an install script, so it fails under
-   `--ignore-scripts`. Check with `railway --version`.
-2. `railway login`. A browser opens; the owner signs in or creates the account. They add a card and
-   pick Hobby in the Railway dashboard.
-3. Create the project and service and upload the code, from this folder:
-   `railway up -y --detach --name whatsapp-bot`
-   It uploads the folder (`.gitignore` is respected, so `.env` stays local), creates the project and
-   service, and starts a build. The first deploy fails until the variables exist; that is expected.
-4. Copy every key from `.env` except `PORT` (Railway sets its own) into the service. Read each value
-   from `.env` and pipe it, so no secret appears on a command line or in your output:
-   `printf %s "$VALUE" | railway variable set ANTHROPIC_API_KEY --stdin --skip-deploys`
-   That is Bash, which is also what Claude Code's Bash tool runs on Windows (Git Bash). In PowerShell:
-   `$v | railway variable set ANTHROPIC_API_KEY --stdin --skip-deploys`
-   Do this for `META_GRAPH_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
-   `WEBHOOK_HMAC_SECRET`, `VERIFY_TOKEN`, `ANTHROPIC_API_KEY`, and any optional ones set
-   (`OWNER_PHONE`, `BOT_EFFORT`...). Set the last one without `--skip-deploys` so it redeploys.
-5. `railway domain` prints the public address, `https://<name>.up.railway.app`.
-6. `curl https://<name>.up.railway.app/health` must print `ok` (in Windows PowerShell 5, type `curl.exe`; plain `curl` is an alias there). If not, `railway logs` shows why
-   (a missing variable names itself: "Missing settings: ...").
-7. Point HookMyApp at it. This stops any running `listen`:
-   `hookmyapp channels webhook set <ch_id> --url https://<name>.up.railway.app/webhook/whatsapp --verify-token <VERIFY_TOKEN>`
-8. The owner sends a real message from their phone and gets an answer.
+Keep the current route working until its replacement passes the checks. Explain and confirm the
+exact number and destination URL before changing live routing. A successful build or health check
+alone is not an end-to-end WhatsApp test: the owner sends from a different WhatsApp account and
+confirms receipt. After cutover, stop only this project's old local processes by verified PID/cwd.
 
-Later changes: edit `business.md` or the code, run `npm test`, then `railway up --detach` again.
-Changing a variable: `railway variable set KEY --stdin` (redeploys by itself).
-
-Run one instance only, and leave Railway's Serverless (app sleeping) setting off: replies run after
-the webhook is acknowledged, and the conversation memory lives in the process. Memory resets on every
-deploy. If the business needs memory that survives restarts, move `src/conversations.js` to a
-database first (`railway add --database postgres`).
+Use one always-on instance, with app sleeping off. History, deduplication and handoff pauses reset
+on restart. Do not add a database without the owner's direction. A request to stop a demo is not
+permission to restart it for validation, cancel subscriptions or delete the owner's WhatsApp account.
 
 ## Working rules
 

@@ -73,12 +73,12 @@ function textOf(m) {
 }
 
 export function createSender({ apiUrl, accessToken, phoneNumberId, fetchImpl = fetch }) {
-  async function post(body) {
+  async function post(body, timeoutMs = 15_000) {
     const res = await fetchImpl(`${apiUrl}/${phoneNumberId}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ messaging_product: "whatsapp", ...body }),
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(`WhatsApp send failed ${res.status}: ${JSON.stringify(json).slice(0, 300)}`);
@@ -89,8 +89,8 @@ export function createSender({ apiUrl, accessToken, phoneNumberId, fetchImpl = f
     // Free-form text only works within 24 hours of the customer's last message.
     sendText: (to, text) => post({ to, type: "text", text: { body: text } }),
 
-    // Marks the customer's message as read and shows "typing..." until the reply arrives.
+    // Read/typing is optional. A slow gateway must not hold the reply for the full send timeout.
     showTyping: (messageId) =>
-      post({ status: "read", message_id: messageId, typing_indicator: { type: "text" } }),
+      post({ status: "read", message_id: messageId, typing_indicator: { type: "text" } }, 2_000),
   };
 }
